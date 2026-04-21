@@ -1,0 +1,22 @@
+# Template file for 'sonusmix'
+pkgname=sonusmix
+version=0.1.1
+revision=1
+#archs="i686 x86_64"
+#build_wrksrc=
+build_style=cargo
+#configure_args=""
+#make_build_args=""
+#make_install_args=""
+#conf_files=""
+#make_dirs="/var/log/dir 0755 root root"
+hostmakedepends="rust cargo cargo-about"
+makedepends="pipewire-devel gtk4-devel"
+depends="pipewire gtk4"
+short_desc="Tool to easily route and manage audio devices in Pipewire"
+maintainer="posingsushi <witty.patient30@mailx.net>"
+license="MPL-2.0"
+homepage="https://codeberg.org/sonusmix/sonusmix"
+#changelog=""
+distfiles="https://codeberg.org/sonusmix/sonusmix/archive/v${version}.tar.gz"
+checksum=363e5780924ac28041bd8596e9d570ac3e6491a2324680dd00a6469f05e65581
