@@ -1,0 +1,96 @@
+# Template file for 'ivpn'
+pkgname=ivpn
+version=3.15.15
+revision=1
+archs="x86_64 aarch64"
+go_import_path=github.com/ivpn/desktop-app/cli
+hostmakedepends="git go cmake gcc ninja curl"
+depends="openvpn"
+short_desc="Official IVPN Desktop app (CLI and Daemon)"
+maintainer="lllill <witty.patient30@mailx.net>"
+license="GPL-3.0-only"
+homepage="https://www.ivpn.net"
+changelog="https://raw.githubusercontent.com/ivpn/desktop-app/refs/heads/development/CHANGELOG.md"
+distfiles="https://github.com/ivpn/desktop-app/archive/refs/tags/v${version}.tar.gz"
+checksum=9e2723a65b61df6e191a68a22fe81cd6839c0e3dd1df4dc97be3f29157241e62
+nopie_files="/opt/ivpn/obfsproxy/obfs4proxy /opt/ivpn/v2ray/v2ray \
+ /opt/ivpn/dnscrypt-proxy/dnscrypt-proxy"
+
+# adapted from AUR package maintained by an IVPN dev
+# https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=ivpn
+do_build() {
+	# build script expects git repo
+	git init
+	git config user.name "anon"
+	git config user.email "anon"
+	git add -A
+	git commit -m "initial commit"
+	git tag -a "v{version}" -m "v${version}"
+
+	# check arch
+	local arch_target="amd64"
+	if [ "$XBPS_TARGET_MACHINE" = "aarch64" ]; then
+		arch_target="arm64"
+	fi
+
+	# Use the daemon build script from upstream
+	# skip glibc ver check, our version is newer and works
+	ARCH_TARGET="${arch_target}" IVPN_BUILD_SKIP_GLIBC_VER_CHECK=1 \
+		./daemon/References/Linux/scripts/build-all.sh -v ${version}
+
+	# Use the cli build script from upstream
+	ARCH_TARGET="${arch_target}" IVPN_BUILD_SKIP_GLIBC_VER_CHECK=1 \
+		./cli/References/Linux/compile-cli.sh -v ${version}
+}
+
+do_install() {
+	local arch_target="amd64"
+	if [ "$XBPS_TARGET_MACHINE" = "aarch64" ]; then
+		arch_target="arm64"
+	fi
+	vbin daemon/References/Linux/scripts/_out_bin/${arch_target}/ivpn-service
+	vbin cli/References/Linux/_out_bin/${arch_target}/ivpn
+
+	# third party binaries
+	vmkdir opt/ivpn/etc
+	vinstall daemon/References/common/etc/ca.crt 400 opt/ivpn/etc
+	vinstall daemon/References/Linux/etc/client.down 700 opt/ivpn/etc
+	vinstall daemon/References/Linux/etc/client.up 700 opt/ivpn/etc
+	vinstall daemon/References/common/etc/dnscrypt-proxy-template.toml \
+		400 opt/ivpn/etc
+	vinstall daemon/References/Linux/etc/firewall.sh 700 opt/ivpn/etc
+	vinstall daemon/References/common/etc/servers.json 600 opt/ivpn/etc
+	vinstall daemon/References/Linux/etc/splittun.sh 700 opt/ivpn/etc
+	vinstall daemon/References/common/etc/ta.key 400 opt/ivpn/etc
+
+	vmkdir opt/ivpn/dnscrypt-proxy
+	vinstall daemon/References/Linux/_deps/${arch_target}/dnscryptproxy_inst/dnscrypt-proxy \
+		755 opt/ivpn/dnscrypt-proxy
+
+	vmkdir opt/ivpn/kem
+	vinstall daemon/References/Linux/_deps/${arch_target}/kem-helper/kem-helper-bin/kem-helper \
+		755 opt/ivpn/kem
+
+	vmkdir opt/ivpn/obfsproxy
+	vinstall daemon/References/Linux/_deps/${arch_target}/obfs4proxy_inst/obfs4proxy \
+		755 opt/ivpn/obfsproxy
+
+	vmkdir opt/ivpn/v2ray
+	vinstall daemon/References/Linux/_deps/${arch_target}/v2ray_inst/v2ray \
+		755 opt/ivpn/v2ray
+
+	vmkdir opt/ivpn/wireguard-tools
+	vinstall daemon/References/Linux/_deps/${arch_target}/wireguard-tools_inst/wg \
+		755 opt/ivpn/wireguard-tools
+	vinstall daemon/References/Linux/_deps/${arch_target}/wireguard-tools_inst/wg-quick \
+		755 opt/ivpn/wireguard-tools
+
+	# runit service
+	vmkdir etc/sv/ivpn-service
+	cat << 'EOF' > ${DESTDIR}/etc/sv/ivpn-service/run
+#!/bin/sh
+
+exec /usr/bin/ivpn-service
+EOF
+	chmod +x ${DESTDIR}/etc/sv/ivpn-service/run
+}
